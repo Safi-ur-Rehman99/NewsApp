@@ -10,7 +10,8 @@ const New = (props) => {
   const [page, setPage] = useState(1);
   const [TotalArticls, setTotalArticls] = useState(0);
   const [nextPage, setNextPage] = useState(null);
-  const [hasMore, setHasMore] = useState(true); // Track if more data is available
+  const [hasMore, setHasMore] = useState(true);
+  const [cryptoAccessDenied, setCryptoAccessDenied] = useState(false);
 
   const updateNews = async () => {
     props.setProgress(10);
@@ -44,37 +45,49 @@ const New = (props) => {
       url += `&image=1`;
       
       setLoading(true);
-      console.log('Fetching NewsData.io URL:', url);
+      
       
       let data = await fetch(url);
       let parsData = await data.json();
       
-      console.log('NewsData.io API Response:', parsData);
+     
       
       if (parsData.status === 'success') {
         setArtical(parsData.results || []);
-        setTotalArticls(parsData.totalResults || parsData.results?.length || 0);
+        setTotalArticls(parsData.results?.length || 0);
         
-        // Set nextPage and hasMore status
+        // Set nextPage and hasMore status based on nextPage token only
         if (parsData.nextPage) {
           setNextPage(parsData.nextPage);
           setHasMore(true);
         } else {
           setNextPage(null);
-          setHasMore(false); // No more data available
+          setHasMore(false); // No more pages available
         }
-        
-        console.log('NextPage token:', parsData.nextPage);
-        console.log('Has more data:', parsData.nextPage ? true : false);
-      } else {
+     
+      } else if (parsData.status === 'error') {
+        // Handle different types of errors
         console.error('API Error:', parsData);
+        if (parsData.results && (parsData.results.code === 'Unauthorized' || parsData.results.message?.includes('upgrade your plan'))) {
+          // This is a crypto access denied error
+          
+          setCryptoAccessDenied(true);
+        } else {
+          setCryptoAccessDenied(false);
+        }
+        setArtical([]);
+        setTotalArticls(0);
+        setNextPage(null);
+        setHasMore(false);
+      } else {
+   
         setArtical([]);
         setTotalArticls(0);
         setNextPage(null);
         setHasMore(false);
       }
     } catch (error) {
-      console.error('Network Error:', error);
+    
       setArtical([]);
       setTotalArticls(0);
       setNextPage(null);
@@ -92,29 +105,76 @@ const New = (props) => {
     setNextPage(null);
     setHasMore(true);
     setArtical([]);
+    setCryptoAccessDenied(false);
     updateNews();
   }, [props.country, props.category]);
 
   const fetchMoreData = async () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
+    // Only proceed if we have a nextPage token
+    if (!nextPage) {
+      setHasMore(false);
+      return;
+    }
 
     try {
-      let url = `https://newsapi.org/v2/top-headlines?`;
-      if (props.country) {
-        url += `country=${props.country}&`;
+      let url = '';
+      
+      // Use different endpoints for crypto vs regular news
+      if (props.category === 'crypto') {
+        // NewsData.io Crypto endpoint with pagination
+        url = `https://newsdata.io/api/1/crypto?apikey=${props.apiKey}`;
+      } else {
+        // NewsData.io Latest news endpoint with pagination
+        url = `https://newsdata.io/api/1/latest?apikey=${props.apiKey}`;
+        
+        // Add category if not general
+        if (props.category && props.category !== 'general') {
+          url += `&category=${props.category}`;
+        }
       }
-      url += `category=${props.category}&apiKey=${props.apiKey}&page=${nextPage}&pageSize=${props.pagesize}`;
+      
+      // Add country if specified (not applicable for crypto endpoint)
+      if (props.country && props.category !== 'crypto') {
+        url += `&country=${props.country}`;
+      }
+      
+      // Add size parameter (articles per page)
+      url += `&size=${props.pagesize}`;
+      
+      // Add image filter to get articles with images
+      url += `&image=1`;
+      
+      // MOST IMPORTANT: Add the nextPage token for pagination
+      url += `&page=${nextPage}`;
+      
+
       
       let data = await fetch(url);
       let parsData = await data.json();
       
-      if (parsData.status === 'ok' && parsData.articles) {
-        setArtical(artical.concat(parsData.articles || []));
-        setTotalArticls(parsData.totalResults || 0);
+    
+      
+      if (parsData.status === 'success' && parsData.results) {
+        // Append new articles to existing ones
+        setArtical(prevArticles => [...prevArticles, ...parsData.results]);
+        
+        // Update pagination info
+        if (parsData.nextPage) {
+          setNextPage(parsData.nextPage);
+          setHasMore(true);
+        } else {
+          setNextPage(null);
+          setHasMore(false); // No more pages available
+        }
+      } else {
+      
+        setHasMore(false);
+        setNextPage(null);
       }
     } catch (error) {
-      console.error('Error fetching more data:', error);
+   
+      setHasMore(false);
+      setNextPage(null);
     }
   };
 
@@ -125,7 +185,28 @@ const New = (props) => {
       </h1>
       {loading && <Spinner />}
 
-      {!loading && artical.length === 0 && (
+   
+      {!loading && artical.length === 0 && cryptoAccessDenied && (
+        <div className="no-articles-container text-center" style={{marginTop: '50px', padding: '40px'}}>
+          <h3 style={{color: '#f59e0b', marginBottom: '20px'}}>
+            🔒 Crypto News - Premium Feature
+          </h3>
+          <p style={{color: '#6b7280', fontSize: '1.1rem', marginBottom: '15px'}}>
+            Crypto news is only available for paid NewsData.io plans.
+          </p>
+          <p style={{color: '#9ca3af', fontSize: '0.95rem', marginBottom: '10px'}}>
+            To access crypto news:
+          </p>
+          <ul style={{color: '#9ca3af', fontSize: '0.95rem', listStyle: 'none', padding: 0}}>
+            <li>• Upgrade your NewsData.io plan</li>
+            <li>• Try other categories like Business or Technology</li>
+            <li>• Visit <a href="https://newsdata.io/pricing" target="_blank" rel="noopener noreferrer" style={{color: '#10b981'}}>NewsData.io Pricing</a> for plan details</li>
+          </ul>
+        </div>
+      )}
+
+      {/* General no articles message */}
+      {!loading && artical.length === 0 && !cryptoAccessDenied && (
         <div className="no-articles-container text-center" style={{marginTop: '50px', padding: '40px'}}>
           <h3 style={{color: '#6b7280', marginBottom: '20px'}}>
             No articles found for this category.
@@ -159,7 +240,7 @@ const New = (props) => {
           <div className="row news-row">
             {artical.map((e, index) => {
               return (
-                <div key={index} className="col-lg-4 col-md-6 col-sm-12 news-card-wrapper">
+                <div key={`${e.article_id || index}-${index}`} className="col-lg-4 col-md-6 col-sm-12 news-card-wrapper">
                   <NewsItem
                     title={e.title ? e.title.slice(0, 80) : ""}
                     description={e.description ? e.description.slice(0, 120) : ""}
