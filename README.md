@@ -9,11 +9,14 @@ DailyPulse is a responsive, modern news application built with React that delive
 [![NewsData.io](https://img.shields.io/badge/NewsData.io-API-green.svg)](https://newsdata.io/)
 [![React Router](https://img.shields.io/badge/React_Router-7.8.0-red.svg)](https://reactrouter.com/)
 
-![DailyPulse Preview](https://via.placeholder.com/800x400?text=DailyPulse+News+App)
+![DailyPulse Preview](https://github.com/user-attachments/assets/db98a06e-97cc-4322-bca6-d59a520a6099)
+
+
 
 ---
 
 ## ✨ Features Overview
+
 
 ### 🌍 **Multi-Category News**
 - **General, Business, Entertainment, Health, Science, Sports, Technology, Crypto**
@@ -233,4 +236,4 @@ Make sure to add your environment variables in the hosting platform's dashboard.
    - Check browser console for API errors
  
 
-**Happy codding ❤️ **
+**Happy coding ❤️**
